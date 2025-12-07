@@ -21,14 +21,14 @@
             model = await tmPose.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            webcam = new tmPose.Webcam(400, 300, true);
+            webcam = new tmPose.Webcam(400, 400, true);
             await webcam.setup();
             await webcam.play();
             window.requestAnimationFrame(loop);
 
             const canvas = document.getElementById("canvas");
-            canvas.width = 300;
-            canvas.height = 300;
+            canvas.width = 400;
+            canvas.height = 500;
             ctx = canvas.getContext("2d");
             labelContainer = document.getElementById("label-container");
             for (let i = 0; i < maxPredictions; i++) {
@@ -70,6 +70,7 @@
     </script>
 </body>
 </html>
+
 
 
 
