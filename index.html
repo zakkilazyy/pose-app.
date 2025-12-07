@@ -2,9 +2,30 @@
 <html>
 <head>
     <title>TM Pose Model</title>
+    <style>
+        /* Center the canvas and remove default margins */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            height: 100vh; /* full viewport height */
+            background-color: #000; /* optional, black background */
+        }
+        canvas {
+            border: 1px solid #000; /* optional */
+        }
+        #label-container {
+            margin-top: 10px;
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <div><canvas id="canvas"></canvas></div>
+    <canvas id="canvas"></canvas>
     <div id="label-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
@@ -20,19 +41,23 @@
             model = await tmPose.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            webcam = new tmPose.Webcam(200, 200, true);
+            const canvas = document.getElementById("canvas");
+            // FIXED canvas size to match WebViewer
+            canvas.width = 296;  // width matches MIT WebViewer
+            canvas.height = 250; // height matches MIT WebViewer
+            ctx = canvas.getContext("2d");
+
+            // Setup webcam to match canvas size
+            webcam = new tmPose.Webcam(canvas.width, canvas.height, true);
             await webcam.setup();
             await webcam.play();
-            window.requestAnimationFrame(loop);
 
-            const canvas = document.getElementById("canvas");
-            canvas.width = 250;
-            canvas.height = 296;
-            ctx = canvas.getContext("2d");
             labelContainer = document.getElementById("label-container");
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.appendChild(document.createElement("div"));
             }
+
+            window.requestAnimationFrame(loop);
         }
 
         async function loop() {
@@ -45,6 +70,7 @@
             const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
             const prediction = await model.predict(posenetOutput);
 
+            // Pick highest probability
             let highest = prediction[0];
             for (let i = 1; i < prediction.length; i++) {
                 if (prediction[i].probability > highest.probability) {
@@ -57,8 +83,8 @@
                 window.AppInventor.setWebViewString(highest.className);
             }
 
-            // Draw
-            ctx.drawImage(webcam.canvas, 0, 0);
+            // Draw webcam & pose
+            ctx.drawImage(webcam.canvas, 0, 0, canvas.width, canvas.height);
             if (pose) {
                 tmPose.drawKeypoints(pose.keypoints, 0.5, ctx);
                 tmPose.drawSkeleton(pose.keypoints, 0.5, ctx);
@@ -69,6 +95,3 @@
     </script>
 </body>
 </html>
-
-
-
