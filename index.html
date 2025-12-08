@@ -16,6 +16,8 @@
         let model, webcam, ctx, labelContainer, maxPredictions;
         let lastPrediction = "";
         let cooldown = false;
+        let predictionHistory = []; // store last N predictions
+        const historyLength = 5;    // number of predictions to smooth over
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -45,6 +47,21 @@
             window.requestAnimationFrame(loop);
         }
 
+        function mostFrequent(arr) {
+            const freq = {};
+            let max = 0;
+            let result = arr[0];
+            for (let i = 0; i < arr.length; i++) {
+                const val = arr[i];
+                freq[val] = (freq[val] || 0) + 1;
+                if (freq[val] > max) {
+                    max = freq[val];
+                    result = val;
+                }
+            }
+            return result;
+        }
+
         async function predict() {
             const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
             const prediction = await model.predict(posenetOutput);
@@ -57,20 +74,30 @@
                 }
             }
 
-            // Confidence filter: only send if probability > 0.7 and cooldown passed
-            if (!cooldown && highest.probability > 0.7 && highest.className !== lastPrediction) {
-                lastPrediction = highest.className;
-                cooldown = true;
-
-                // Send to App Inventor
-                if (window.AppInventor) {
-                    window.AppInventor.setWebViewString(highest.className);
+            // Only consider predictions above confidence threshold
+            if (highest.probability > 0.7) {
+                // Add to history
+                predictionHistory.push(highest.className);
+                if (predictionHistory.length > historyLength) {
+                    predictionHistory.shift(); // remove oldest
                 }
 
-                // Reset cooldown after 500ms
-                setTimeout(() => {
-                    cooldown = false;
-                }, 500);
+                // Get most frequent in history
+                const smoothPrediction = mostFrequent(predictionHistory);
+
+                if (!cooldown && smoothPrediction !== lastPrediction) {
+                    lastPrediction = smoothPrediction;
+                    cooldown = true;
+
+                    if (window.AppInventor) {
+                        window.AppInventor.setWebViewString(smoothPrediction);
+                    }
+
+                    // Reset cooldown after 500ms
+                    setTimeout(() => {
+                        cooldown = false;
+                    }, 500);
+                }
             }
 
             // Draw webcam and pose
