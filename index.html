@@ -17,11 +17,11 @@
         let lastPrediction = "";
         let cooldown = false;
         let predictionHistory = []; // store last N predictions
-        const historyLength = 3;    // reduced for faster smoothing
+        const historyLength = 5;    // number of predictions to smooth over
 
         // === ADDED VARIABLES ===
         const COOLDOWN_TIME = 700;  
-        const THRESHOLD = 0.25;     // lowered threshold for more sensitivity
+        const THRESHOLD = 0.40;     
         // ========================
 
         async function init() {
@@ -52,7 +52,7 @@
             window.requestAnimationFrame(loop);
         }
 
-        function mostFrequentWeighted(arr) {
+        function mostFrequent(arr) {
             const freq = {};
             let max = 0;
             let result = arr[0];
@@ -80,13 +80,13 @@
             }
 
             // Only consider predictions above confidence threshold
-            if (highest.probability > THRESHOLD) {  
+            if (highest.probability > THRESHOLD) {   // <--- UPDATED
                 predictionHistory.push(highest.className);
                 if (predictionHistory.length > historyLength) {
                     predictionHistory.shift(); 
                 }
 
-                const smoothPrediction = mostFrequentWeighted(predictionHistory);
+                const smoothPrediction = mostFrequent(predictionHistory);
 
                 if (!cooldown && smoothPrediction !== lastPrediction) {
                     lastPrediction = smoothPrediction;
@@ -99,7 +99,7 @@
                     // Reset cooldown using COOLDOWN_TIME
                     setTimeout(() => {
                         cooldown = false;
-                    }, COOLDOWN_TIME);  
+                    }, COOLDOWN_TIME);   // <--- UPDATED
                 }
             }
 
