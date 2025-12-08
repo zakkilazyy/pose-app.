@@ -21,7 +21,9 @@
             model = await tmPose.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            webcam = new tmPose.Webcam(700, 600, true);
+            webcam = new tmPose.Webcam(canvasWidth, canvasHeight, true);
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight
             await webcam.setup();
             await webcam.play();
             window.requestAnimationFrame(loop);
@@ -70,6 +72,7 @@
     </script>
 </body>
 </html>
+
 
 
 
