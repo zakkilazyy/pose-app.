@@ -17,11 +17,11 @@
 
         let lastPrediction = "";
         let predictionHistory = [];
-        const REQUIRED_REPEATS = 2; // 2-frame repeat check
-        const COOLDOWN_TIME = 200;  // ms cooldown
+        const REQUIRED_REPEATS = 2;
+        const COOLDOWN_TIME = 200;
         let cooldown = false;
 
-        // thresholds per gesture (lower for subtle ones)
+        // thresholds per gesture
         const THRESHOLDS = {
             "hello": 0.35,
             "thank you": 0.25,
@@ -30,6 +30,10 @@
             "yes": 0.3,
             "no": 0.3
         };
+
+        // Throttle predictions
+        let lastPredictTime = 0;
+        const PREDICT_INTERVAL = 150; // ms
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -41,21 +45,31 @@
             webcam = new tmPose.Webcam(400, 400, true);
             await webcam.setup();
             await webcam.play();
-            window.requestAnimationFrame(loop);
 
             const canvas = document.getElementById("canvas");
             canvas.width = 800;
             canvas.height = 800;
             ctx = canvas.getContext("2d");
+
             labelContainer = document.getElementById("label-container");
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.appendChild(document.createElement("div"));
             }
+
+            window.requestAnimationFrame(loop);
         }
 
-        async function loop() {
+        async function loop(timestamp) {
             webcam.update();
-            await predict();
+
+            if (timestamp - lastPredictTime > PREDICT_INTERVAL) {
+                await predict();
+                lastPredictTime = timestamp;
+            }
+
+            // Always draw webcam scaled to canvas
+            ctx.drawImage(webcam.canvas, 0, 0, 800, 800);
+
             window.requestAnimationFrame(loop);
         }
 
@@ -122,13 +136,12 @@
                 }
             }
 
-            // Draw webcam and scaled pose
-            ctx.drawImage(webcam.canvas, 0, 0, 800, 800);
+            // Draw scaled pose
             if (pose) {
                 drawScaledPose(pose, 800, 800);
             }
 
-            // Show all predictions
+            // Optional: show all predictions
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.childNodes[i].innerHTML =
                     prediction[i].className + ": " + prediction[i].probability.toFixed(2);
