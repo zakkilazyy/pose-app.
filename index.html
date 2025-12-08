@@ -15,15 +15,10 @@
         const URL = "https://teachablemachine.withgoogle.com/models/bEB3eBuPL/";
         let model, webcam, ctx, labelContainer, maxPredictions;
 
-        // Variables for smoothing / cooldown
         let lastPrediction = "";
         let cooldown = false;
-        let predictionHistory = []; 
-        const historyLength = 8;        // increased history for smoother output
-        const COOLDOWN_TIME = 700;      // ms
-        const THRESHOLD = 0.35;         // lower threshold for tricky poses
-        let repeatCount = 0;
-        const REQUIRED_REPEATS = 2;     // prediction must appear 2x in history before sending
+        const COOLDOWN_TIME = 300; // shorter cooldown
+        const THRESHOLD = 0.3;
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -31,7 +26,6 @@
             model = await tmPose.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            // Webcam matches canvas size
             webcam = new tmPose.Webcam(800, 800, true);
             await webcam.setup();
             await webcam.play();
@@ -53,26 +47,11 @@
             window.requestAnimationFrame(loop);
         }
 
-        function mostFrequent(arr) {
-            const freq = {};
-            let max = 0;
-            let result = arr[0];
-            for (let i = 0; i < arr.length; i++) {
-                const val = arr[i];
-                freq[val] = (freq[val] || 0) + 1;
-                if (freq[val] > max) {
-                    max = freq[val];
-                    result = val;
-                }
-            }
-            return result;
-        }
-
         async function predict() {
             const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
             const prediction = await model.predict(posenetOutput);
 
-            // Find the highest probability
+            // Find highest probability
             let highest = prediction[0];
             for (let i = 1; i < prediction.length; i++) {
                 if (prediction[i].probability > highest.probability) {
@@ -80,34 +59,15 @@
                 }
             }
 
-            // Only consider predictions above confidence threshold
-            if (highest.probability > THRESHOLD) {
-                predictionHistory.push(highest.className);
-                if (predictionHistory.length > historyLength) {
-                    predictionHistory.shift(); 
+            // Simple threshold + cooldown
+            if (highest.probability > THRESHOLD && highest.className !== lastPrediction && !cooldown) {
+                lastPrediction = highest.className;
+                if (window.AppInventor) {
+                    window.AppInventor.setWebViewString(lastPrediction);
                 }
 
-                const smoothPrediction = mostFrequent(predictionHistory);
-
-                // Count repeats for stability
-                if (smoothPrediction === lastPrediction) {
-                    repeatCount++;
-                } else {
-                    repeatCount = 1;  // first occurrence counts as 1
-                }
-
-                if (!cooldown && repeatCount >= REQUIRED_REPEATS && smoothPrediction !== lastPrediction) {
-                    lastPrediction = smoothPrediction;
-                    cooldown = true;
-
-                    if (window.AppInventor) {
-                        window.AppInventor.setWebViewString(smoothPrediction);
-                    }
-
-                    setTimeout(() => {
-                        cooldown = false;
-                    }, COOLDOWN_TIME);
-                }
+                cooldown = true;
+                setTimeout(() => cooldown = false, COOLDOWN_TIME);
             }
 
             // Draw webcam and pose
@@ -117,7 +77,7 @@
                 tmPose.drawSkeleton(pose.keypoints, 0.5, ctx);
             }
 
-            // Optional: show all predictions in label container
+            // Optional: show all predictions
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.childNodes[i].innerHTML =
                     prediction[i].className + ": " + prediction[i].probability.toFixed(2);
