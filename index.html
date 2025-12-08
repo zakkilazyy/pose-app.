@@ -12,14 +12,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
 
     <script type="text/javascript">
-        const URL = "https://teachablemachine.withgoogle.com/models/bEB3eBuPL/";
+        const URL = "https://teachablemachine.withgoogle.com/models/obkMc4pY-/";
         let model, webcam, ctx, labelContainer, maxPredictions;
 
-        // --- added variables ---
+        // --- improved variables ---
         let lastPrediction = "";
         let cooldown = false;
-        const THRESHOLD = 0.55;   // 55% confidence needed
-        const COOLDOWN_TIME = 700; // ms
+        let seenCount = 0;
+
+        const THRESHOLD = 0.40;        // lower = more responsive
+        const COOLDOWN_TIME = 300;     // faster updates
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -52,7 +54,7 @@
             const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
             const prediction = await model.predict(posenetOutput);
 
-            // -------- find highest prediction --------
+            // find highest prediction
             let highest = prediction[0];
             for (let i = 1; i < prediction.length; i++) {
                 if (prediction[i].probability > highest.probability) {
@@ -60,44 +62,32 @@
                 }
             }
 
-            // -------- confidence filter --------
-            let outputText = "—";  // default: no sign
-            
+            let outputText = "—";
+
+            // --- SOFT FILTER ---
             if (highest.probability >= THRESHOLD) {
 
-                if (!cooldown && highest.className !== lastPrediction) {
+                if (highest.className === lastPrediction) {
+                    // gesture seen repeatedly → stronger signal
+                    seenCount++;
+                } else {
+                    seenCount = 0;
+                }
+
+                if (!cooldown && (seenCount >= 1 || highest.probability >= 0.50)) {
+
                     lastPrediction = highest.className;
                     outputText = highest.className;
 
-                    // send to App Inventor
                     if (window.AppInventor) {
                         window.AppInventor.setWebViewString(highest.className);
                     }
 
-                    // apply cooldown
                     cooldown = true;
                     setTimeout(() => cooldown = false, COOLDOWN_TIME);
                 } else {
-                    outputText = lastPrediction; 
+                    outputText = lastPrediction;
                 }
 
             } else {
-                // low confidence — do not change prediction
                 outputText = "—";
-            }
-
-            // update label container display
-            labelContainer.innerHTML = "Prediction: " + outputText;
-
-            // Draw
-            ctx.drawImage(webcam.canvas, 0, 0);
-            if (pose) {
-                tmPose.drawKeypoints(pose.keypoints, 0.5, ctx);
-                tmPose.drawSkeleton(pose.keypoints, 0.5, ctx);
-            }
-        }
-
-        init();
-    </script>
-</body>
-</html>
