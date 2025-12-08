@@ -15,10 +15,11 @@
         const URL = "https://teachablemachine.withgoogle.com/models/bEB3eBuPL/";
         let model, webcam, ctx, labelContainer, maxPredictions;
 
+        // Simple cooldown to prevent flicker
         let lastPrediction = "";
         let cooldown = false;
-        const COOLDOWN_TIME = 300; // shorter cooldown
-        const THRESHOLD = 0.3;
+        const COOLDOWN_TIME = 200; // 0.2 sec
+        const THRESHOLD = 0.25;    // low threshold for tricky gestures
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -30,7 +31,7 @@
             await webcam.setup();
             await webcam.play();
             window.requestAnimationFrame(loop);
-            
+
             const canvas = document.getElementById("canvas");
             canvas.width = 800;
             canvas.height = 800;
@@ -59,15 +60,14 @@
                 }
             }
 
-            // Simple threshold + cooldown
-            if (highest.probability > THRESHOLD && highest.className !== lastPrediction && !cooldown) {
+            // Send to App Inventor if above threshold and not in cooldown
+            if (highest.probability > THRESHOLD && !cooldown) {
                 lastPrediction = highest.className;
                 if (window.AppInventor) {
                     window.AppInventor.setWebViewString(lastPrediction);
                 }
-
                 cooldown = true;
-                setTimeout(() => cooldown = false, COOLDOWN_TIME);
+                setTimeout(() => { cooldown = false; }, COOLDOWN_TIME);
             }
 
             // Draw webcam and pose
@@ -77,7 +77,7 @@
                 tmPose.drawSkeleton(pose.keypoints, 0.5, ctx);
             }
 
-            // Optional: show all predictions
+            // Show all predictions in label container
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.childNodes[i].innerHTML =
                     prediction[i].className + ": " + prediction[i].probability.toFixed(2);
