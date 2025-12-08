@@ -13,7 +13,9 @@
 
     <script type="text/javascript">
         const URL = "https://teachablemachine.withgoogle.com/models/obkMc4pY-/";
-        let model, webcam, ctx, labelContainer, maxPredictions, lastPrediction = " ", cooldown = false;
+        let model, webcam, ctx, labelContainer, maxPredictions;
+        let lastPrediction = " ";
+        let cooldown = false;
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -81,6 +83,7 @@
     </script>
 </body>
 </html>
+
 
 
 
