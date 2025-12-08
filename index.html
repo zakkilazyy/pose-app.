@@ -14,7 +14,7 @@
     <script type="text/javascript">
         const URL = "https://teachablemachine.withgoogle.com/models/obkMc4pY-/";
         let model, webcam, ctx, labelContainer, maxPredictions;
-        let lastPrediction = " ";
+        let lastPrediction = "";
         let cooldown = false;
 
         async function init() {
@@ -23,6 +23,7 @@
             model = await tmPose.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
+            // Webcam matches canvas size
             webcam = new tmPose.Webcam(800, 800, true);
             await webcam.setup();
             await webcam.play();
@@ -48,6 +49,7 @@
             const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
             const prediction = await model.predict(posenetOutput);
 
+            // Find the highest probability
             let highest = prediction[0];
             for (let i = 1; i < prediction.length; i++) {
                 if (prediction[i].probability > highest.probability) {
@@ -55,15 +57,15 @@
                 }
             }
 
-            // Cooldown: only send new prediction if it changes and 0.5s passed
-            if (!cooldown && highest.className !== lastPrediction) {
+            // Confidence filter: only send if probability > 0.7 and cooldown passed
+            if (!cooldown && highest.probability > 0.7 && highest.className !== lastPrediction) {
                 lastPrediction = highest.className;
                 cooldown = true;
 
-            // Send prediction to App Inventor
-            if (window.AppInventor) {
-                window.AppInventor.setWebViewString(highest.className);
-            }
+                // Send to App Inventor
+                if (window.AppInventor) {
+                    window.AppInventor.setWebViewString(highest.className);
+                }
 
                 // Reset cooldown after 500ms
                 setTimeout(() => {
@@ -71,11 +73,17 @@
                 }, 500);
             }
 
-            // Draw
+            // Draw webcam and pose
             ctx.drawImage(webcam.canvas, 0, 0);
             if (pose) {
                 tmPose.drawKeypoints(pose.keypoints, 0.5, ctx);
                 tmPose.drawSkeleton(pose.keypoints, 0.5, ctx);
+            }
+
+            // Optional: show all predictions in label container
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.childNodes[i].innerHTML =
+                    prediction[i].className + ": " + prediction[i].probability.toFixed(2);
             }
         }
 
@@ -83,20 +91,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
