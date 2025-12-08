@@ -38,7 +38,7 @@
             maxPredictions = model.getTotalClasses();
 
             // Use smaller webcam for faster processing
-            webcam = new tmPose.Webcam(400, 400, true);
+            webcam = new tmPose.Webcam(300, 300, true);
             await webcam.setup();
             await webcam.play();
             window.requestAnimationFrame(loop);
@@ -113,3 +113,4 @@
     </script>
 </body>
 </html>
+
