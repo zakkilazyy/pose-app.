@@ -14,10 +14,12 @@
     <script type="text/javascript">
         const URL = "https://teachablemachine.withgoogle.com/models/bEB3eBuPL/";
         let model, webcam, ctx, labelContainer, maxPredictions;
+
+        // --- added variables ---
         let lastPrediction = "";
         let cooldown = false;
-        let predictionHistory = []; // store last N predictions
-        const historyLength = 5;    // number of predictions to smooth over
+        const THRESHOLD = 0.55;   // 55% confidence needed
+        const COOLDOWN_TIME = 700; // ms
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -25,8 +27,7 @@
             model = await tmPose.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            // Webcam matches canvas size
-            webcam = new tmPose.Webcam(800, 800, true);
+            webcam = new tmPose.Webcam(700, 600, true);
             await webcam.setup();
             await webcam.play();
             window.requestAnimationFrame(loop);
@@ -47,26 +48,11 @@
             window.requestAnimationFrame(loop);
         }
 
-        function mostFrequent(arr) {
-            const freq = {};
-            let max = 0;
-            let result = arr[0];
-            for (let i = 0; i < arr.length; i++) {
-                const val = arr[i];
-                freq[val] = (freq[val] || 0) + 1;
-                if (freq[val] > max) {
-                    max = freq[val];
-                    result = val;
-                }
-            }
-            return result;
-        }
-
         async function predict() {
             const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
             const prediction = await model.predict(posenetOutput);
 
-            // Find the highest probability
+            // -------- find highest prediction --------
             let highest = prediction[0];
             for (let i = 1; i < prediction.length; i++) {
                 if (prediction[i].probability > highest.probability) {
@@ -74,43 +60,40 @@
                 }
             }
 
-            // Only consider predictions above confidence threshold
-            if (highest.probability > 0.7) {
-                // Add to history
-                predictionHistory.push(highest.className);
-                if (predictionHistory.length > historyLength) {
-                    predictionHistory.shift(); // remove oldest
-                }
+            // -------- confidence filter --------
+            let outputText = "—";  // default: no sign
+            
+            if (highest.probability >= THRESHOLD) {
 
-                // Get most frequent in history
-                const smoothPrediction = mostFrequent(predictionHistory);
+                if (!cooldown && highest.className !== lastPrediction) {
+                    lastPrediction = highest.className;
+                    outputText = highest.className;
 
-                if (!cooldown && smoothPrediction !== lastPrediction) {
-                    lastPrediction = smoothPrediction;
-                    cooldown = true;
-
+                    // send to App Inventor
                     if (window.AppInventor) {
-                        window.AppInventor.setWebViewString(smoothPrediction);
+                        window.AppInventor.setWebViewString(highest.className);
                     }
 
-                    // Reset cooldown after 500ms
-                    setTimeout(() => {
-                        cooldown = false;
-                    }, 500);
+                    // apply cooldown
+                    cooldown = true;
+                    setTimeout(() => cooldown = false, COOLDOWN_TIME);
+                } else {
+                    outputText = lastPrediction; 
                 }
+
+            } else {
+                // low confidence — do not change prediction
+                outputText = "—";
             }
 
-            // Draw webcam and pose
+            // update label container display
+            labelContainer.innerHTML = "Prediction: " + outputText;
+
+            // Draw
             ctx.drawImage(webcam.canvas, 0, 0);
             if (pose) {
                 tmPose.drawKeypoints(pose.keypoints, 0.5, ctx);
                 tmPose.drawSkeleton(pose.keypoints, 0.5, ctx);
-            }
-
-            // Optional: show all predictions in label container
-            for (let i = 0; i < maxPredictions; i++) {
-                labelContainer.childNodes[i].innerHTML =
-                    prediction[i].className + ": " + prediction[i].probability.toFixed(2);
             }
         }
 
@@ -118,4 +101,3 @@
     </script>
 </body>
 </html>
-
