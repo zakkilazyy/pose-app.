@@ -14,15 +14,16 @@
     <script type="text/javascript">
         const URL = "https://teachablemachine.withgoogle.com/models/bEB3eBuPL/";
         let model, webcam, ctx, labelContainer, maxPredictions;
+
+        // Variables for smoothing / cooldown
         let lastPrediction = "";
         let cooldown = false;
-        let predictionHistory = []; // store last N predictions
-        const historyLength = 5;    // number of predictions to smooth over
-
-        // === ADDED VARIABLES ===
-        const COOLDOWN_TIME = 700;  
-        const THRESHOLD = 0.40;     
-        // ========================
+        let predictionHistory = []; 
+        const historyLength = 8;        // increased history for smoother output
+        const COOLDOWN_TIME = 700;      // ms
+        const THRESHOLD = 0.35;         // lower threshold for tricky poses
+        let repeatCount = 0;
+        const REQUIRED_REPEATS = 2;     // prediction must appear 2x in history before sending
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -80,7 +81,7 @@
             }
 
             // Only consider predictions above confidence threshold
-            if (highest.probability > THRESHOLD) {   // <--- UPDATED
+            if (highest.probability > THRESHOLD) {
                 predictionHistory.push(highest.className);
                 if (predictionHistory.length > historyLength) {
                     predictionHistory.shift(); 
@@ -88,7 +89,14 @@
 
                 const smoothPrediction = mostFrequent(predictionHistory);
 
-                if (!cooldown && smoothPrediction !== lastPrediction) {
+                // Count repeats for stability
+                if (smoothPrediction === lastPrediction) {
+                    repeatCount++;
+                } else {
+                    repeatCount = 1;  // first occurrence counts as 1
+                }
+
+                if (!cooldown && repeatCount >= REQUIRED_REPEATS && smoothPrediction !== lastPrediction) {
                     lastPrediction = smoothPrediction;
                     cooldown = true;
 
@@ -96,10 +104,9 @@
                         window.AppInventor.setWebViewString(smoothPrediction);
                     }
 
-                    // Reset cooldown using COOLDOWN_TIME
                     setTimeout(() => {
                         cooldown = false;
-                    }, COOLDOWN_TIME);   // <--- UPDATED
+                    }, COOLDOWN_TIME);
                 }
             }
 
